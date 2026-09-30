@@ -1,7 +1,3 @@
-#### 🐍 FILE B: Il Server Core di Automazione AI (`server.py`)
-Questo script Python implementa la pipeline asincrona. Scansiona i feed di ciclismo globale, effettua chiamate OpenAI e memorizza i dati.
-
-```python
 import feedparser
 import httpx
 from fastapi import FastAPI
@@ -25,52 +21,38 @@ CYCLING_FEEDS = [
     "https://cyclingweekly.com"
 ]
 
-async def generate_ai_article(raw_title, raw_summary):
-    openai_api_url = "https://openai.com"
-    headers = {
-        "Authorization": "Bearer IL_TUO_TOKEN_OPENAI", # Inserire qui la chiave API ://openai.com
-        "Content-Type": "application/json"
-    }
-    prompt = f"Traduci e trasforma in un articolo tecnico in italiano per il blog infoBiKe questa notizia. Titolo: {raw_title}. Sommario: {raw_summary}. Usa terminologia ciclistica avanzata."
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [{"role": "user", "content": prompt}]
-    }
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(openai_api_url, json=payload, headers=headers, timeout=12.0)
-            if response.status_code == 200:
-                return response.json()['choices']['message']['content']
-    except Exception:
-        pass
-    return f"{raw_summary} (Contenuto sincronizzato ed importato)"
-
 async def fetch_and_autoblog():
+    print("infoBiKe System: Scansione feed e aggiornamento notizie...")
     for feed_url in CYCLING_FEEDS:
         try:
             feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:1]:
+            for entry in feed.entries[:2]:
                 if any(post["title"] == entry.title for post in AUTOMATED_BLOG_POSTS):
                     continue
-                content_it = await generate_ai_article(entry.title, entry.get('summary', ''))
+                
+                summary_clean = entry.get('summary', 'Clicca per leggere i dettagli dell\'hardware.')
+                if len(summary_clean) > 200:
+                    summary_clean = summary_clean[:200] + "..."
+
                 new_post = {
                     "id": len(AUTOMATED_BLOG_POSTS) + 1,
                     "title": entry.title,
-                    "content": content_it,
+                    "content": summary_clean,
                     "category": "WorldTour",
                     "image_url": "https://unsplash.com",
-                    "date": datetime.now().strftime("%d/%m/%Y")
+                    "date": datetime.now().strftime("%d/%m/%Y - %H:%M")
                 }
                 AUTOMATED_BLOG_POSTS.insert(0, new_post)
-        except Exception:
-            pass
+                print(f"Nuova notizia caricata: {entry.title}")
+        except Exception as e:
+            print(f"Errore scansione: {e}")
 
 @app.on_event("startup")
 async def start_automation():
     async def loop():
         while True:
             await fetch_and_autoblog()
-            await asyncio.sleep(1800) # Scansione programmata ogni 30 minuti
+            await asyncio.sleep(600)
     asyncio.create_task(loop())
 
 @app.get("/api/news")
@@ -79,4 +61,4 @@ def get_news():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=10000)
