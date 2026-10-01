@@ -7,12 +7,13 @@ import asyncio
 
 app = FastAPI(title="infoBiKe Server Engine")
 
+# CONFIGURAZIONE COMPLETA CORS: Sblocca l'invio delle notizie verso Netlify
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Permette a qualsiasi indirizzo (incluso Netlify) di leggere le notizie
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Sblocca tutti i metodi di comunicazione (GET, POST)
+    allow_headers=["*"],  # Accetta tutte le intestazioni di rete
 )
 
 AUTOMATED_BLOG_POSTS = []
@@ -22,7 +23,7 @@ CYCLING_FEEDS = [
 ]
 
 async def fetch_and_autoblog():
-    print("infoBiKe System: Scansione feed e aggiornamento notizie...")
+    print("infoBiKe System: Controllo feed RSS in corso...")
     for feed_url in CYCLING_FEEDS:
         try:
             feed = feedparser.parse(feed_url)
@@ -43,16 +44,16 @@ async def fetch_and_autoblog():
                     "date": datetime.now().strftime("%d/%m/%Y - %H:%M")
                 }
                 AUTOMATED_BLOG_POSTS.insert(0, new_post)
-                print(f"Nuova notizia caricata: {entry.title}")
+                print(f"Notizia sincronizzata con successo: {entry.title}")
         except Exception as e:
-            print(f"Errore scansione: {e}")
+            print(f"Errore scansione feed: {e}")
 
 @app.on_event("startup")
 async def start_automation():
     async def loop():
         while True:
             await fetch_and_autoblog()
-            await asyncio.sleep(600)
+            await asyncio.sleep(300) # Controlla i feed sportivi ogni 5 minuti
     asyncio.create_task(loop())
 
 @app.get("/api/news")
